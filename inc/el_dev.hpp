@@ -3,49 +3,79 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <bitset>
+#include <sstream>
+#include <string>
+#include <mutex>
+#include <memory>
 
 namespace el
 {
-	// Logger level definitions
-	enum class Level : unsigned short {
-		Info = 1,
-		Debug = 2,
-		Warning = 4,
-		Error = 8,
-		General = 16
-	};
+	// Useful little macros
+	// ------------------------
+	#define PTRME (*this)
 
-	// HELP Namespace - helper functions, used by EL
-	namespace help
+	// Type conventions
+	// ------------------------
+	typedef unsigned int uint;
+	typedef char* cstr;
+
+	// Logger level definitions
+	// ------------------------
+	namespace Level
 	{
-		inline bool file_exists(const char* filename)
+		enum : unsigned short {
+			Info = 1 << 0,
+			Debug = 1 << 1,
+			Warning = 1 << 2,
+			Error = 1 << 3,
+			General = 1 << 4
+		};
+	}
+
+	// UTILS Namespace - helper functions
+	// ------------------------
+	namespace utils
+	{
+		inline bool cast(int a) {
+			return (a == 1 ? true : false);
+		}
+
+		inline bool file_exists(const cstr filename)
 		{
 			std::ifstream f(filename);
 			return (!f ? false : true);
 		}
 	}
 	// INTERNAL Namespace - should not be used by the user
+	// ------------------------
 	namespace internal
 	{
-		class Config
+		// Smart mutex - adds lambda function for auto lock-unlock
+		// ------------------------
+		class smart_mutex : public std::mutex
 		{
 		public:
-			Config(bool default = true)
-			{
-				if(default) {
-					// Apply default config
-				}
-				else {
-					// Apply non-default config
-				}
+			template<typename functor>
+			void lambda(functor func) {
+				lock();
+					func();
+				unlock();
 			}
-		private:
-
 		};
 
 		class Writer
 		{
-			
+		public:
+			smart_mutex w_Mutex;
+			std::stringstream stream;
+
+			inline Writer& operator<<(const std::string& s) {
+				w_Mutex.lambda([&](){
+					stream << s;
+				});
+				return PTRME;
+			}
 		};
 
 		class Logger
@@ -53,40 +83,89 @@ namespace el
 		public:
 			Logger()
 			{}
-			Config cfg;
-			
+			Writer& getWriter()
+			{
+				return writer;
+			}
+		private:
+			Writer writer;
 		};
 
 		class Manager
 		{
 		private:
 			Logger yeah;
-			std::map<char*,Logger> loggers;
+			std::map<cstr,Logger> loggers;
 		public:
-			Logger& get(char* logger_name)
+			Writer& write(cstr logger_name)
 			{
-				std::cout << "Looks like it's working..." << std::endl;
-				return loggers[logger_name];
+				return loggers[logger_name].getWriter();
 			}
+			Manager()
+			{
+				loggers["_default"] = Logger();
+			}
+			~Manager()
+			{}
 		};
 	}
-
-	// Global variables, that will hold logger configuration
-	internal::Manager log_manager = internal::Manager();
 	
-	inline el::internal::Logger& _LOG(char* logger_name = "_default", el::Level level = el::Level::General)
+	// ------------------------
+	// Configuration class
+	// ------------------------
+	class Config
 	{
-		return el::log_manager.get(logger_name);
+	public:
+		Config(bool default = true)
+		{
+			if(default) {
+				// Apply default config
+			}
+			else {
+				// Apply non-default config
+			}
+		}
+	private:
+		bool toFile;
+	};
+
+	// Important variables
+	// ------------------------
+	std::unique_ptr<internal::Manager> log_manager;
+	std::unique_ptr<Config> manager_config;
+
+	// Initialization function
+	// ------------------------
+	inline bool initialize(Config cfg)
+	{
+		
 	}
 
-#define LERROR(name) _LOG(name, el::Level::Error)
-#define LINFO(name) _LOG(name, el::Level::Info)
-#define LDEBUG(name) _LOG(name, el::Level::Debug)
-#define LWARNING(name) _LOG(name, el::Level::Warning)
-#define LGENERAL(name) _LOG(name, el::Level::General)
-
+	// Macros for easy access to levels
+	// ------------------------
+	#define GENERAL Level::General
+	#define ERROR Level::Error
+	#define WARNING Level::Warning
+	#define DEBUG Level::Debug
+	#define INFO Level::Info
 }
 
-#define LOG(name, level) el::L##level(name)
-#define LOG(name, name2, level) el::L##level(name); el::L##level(name2)
-#define LOG(name, name2, name3, level) el::L##level(name); el::L##level(name2); el::L##level(name3)
+
+inline el::internal::Writer& LOG(el::uint level = el::Level::General, el::cstr logger_name = "_default")
+{
+	if(el::log_manager)
+	{
+		if(level & el::GENERAL) {
+		
+		}
+		if(level & el::ERROR) {
+	
+		}
+
+		return el::log_manager->write(logger_name);
+	}
+	else
+	{
+		throw std::exception("FATAL: The logging manager has not been initialized.");
+	}
+}
