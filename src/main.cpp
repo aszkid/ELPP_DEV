@@ -1,8 +1,5 @@
 #include <el_dev.hpp>
 
-/*#include <iostream>
-#include <sstream>*/
-
 int main()
 {
 	Benchmark b;
