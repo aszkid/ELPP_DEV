@@ -8,12 +8,64 @@
 #include <string>
 #include <mutex>
 #include <memory>
+#include <chrono>
+
+#define TIME_AS_MILLI(bench) float(bench.get<std::chrono::milliseconds>().count())
+#define TIME_AS_SEC(bench) TIME_AS_MILLI(bench)/1000.0f
+#define TIME_AS_MIN(bench) TIME_AS_SEC(bench)/60.0f
+#define TIME_AS_MICRO(bench) float(bench.get<std::chrono::microseconds>().count())
+
+class Benchmark
+{
+private:
+	std::chrono::system_clock::time_point t0;
+	std::chrono::system_clock::time_point t1;
+public:
+	void start()
+	{
+		t0 = std::chrono::high_resolution_clock::now();
+	}
+	void stop()
+	{
+		t1 = std::chrono::high_resolution_clock::now();
+	}
+	void restart()
+	{stop();start();}
+			
+	template<typename t>
+	t get()
+	{
+		return std::chrono::duration_cast<t>(t1 - t0);
+	}
+
+	template<typename Functor>
+	void lambda(Functor func)
+	{
+		start();
+		func();
+		stop();
+	}
+};
 
 namespace el
 {
 	// Useful little macros
 	// ------------------------
 	#define PTRME (*this)
+
+	// Macros for easy access to levels
+	// ------------------------
+	#define GENERAL Level::General
+	#define ERROR Level::Error
+	#define WARNING Level::Warning
+	#define DEBUG Level::Debug
+	#define INFO Level::Info
+
+	// Important variables
+	// ------------------------
+	class Config;
+
+	std::unique_ptr<Config> log_config;
 
 	// Type conventions
 	// ------------------------
@@ -37,8 +89,43 @@ namespace el
 	// ------------------------
 	namespace utils
 	{
-		inline bool cast(int a) {
-			return (a == 1 ? true : false);
+		cstr levelToStr(uint level)
+		{
+			switch(level)
+			{
+			case GENERAL:
+				return "GENERAL";
+			case ERROR:
+				return "ERROR";
+			case WARNING:
+				return "WARNING";
+			case DEBUG:
+				return "DEBUG";
+			case INFO:
+				return "INFO";
+			default:
+				return "GENERAL";
+			}
+		}
+
+		class NonCopyable
+		{
+		protected:
+			NonCopyable(void) {}
+		private:
+			NonCopyable(const NonCopyable&);
+			NonCopyable& operator=(const NonCopyable&);
+		};
+
+		template<class T>
+		inline std::unique_ptr<T> makeUniquePtr()
+		{
+			return std::unique_ptr<T>(new T());
+		}
+		template<class T>
+		inline std::unique_ptr<T> makeUniquePtr(const T& data)
+		{
+			return std::unique_ptr<T>(new T(data));
 		}
 
 		inline bool file_exists(const cstr filename)
@@ -46,11 +133,7 @@ namespace el
 			std::ifstream f(filename);
 			return (!f ? false : true);
 		}
-	}
-	// INTERNAL Namespace - should not be used by the user
-	// ------------------------
-	namespace internal
-	{
+		
 		// Smart mutex - adds lambda function for auto lock-unlock
 		// ------------------------
 		class smart_mutex : public std::mutex
@@ -63,54 +146,8 @@ namespace el
 				unlock();
 			}
 		};
-
-		class Writer
-		{
-		public:
-			smart_mutex w_Mutex;
-			std::stringstream stream;
-
-			inline Writer& operator<<(const std::string& s) {
-				w_Mutex.lambda([&](){
-					stream << s;
-				});
-				return PTRME;
-			}
-		};
-
-		class Logger
-		{
-		public:
-			Logger()
-			{}
-			Writer& getWriter()
-			{
-				return writer;
-			}
-		private:
-			Writer writer;
-		};
-
-		class Manager
-		{
-		private:
-			Logger yeah;
-			std::map<cstr,Logger> loggers;
-		public:
-			Writer& write(cstr logger_name)
-			{
-				return loggers[logger_name].getWriter();
-			}
-			Manager()
-			{
-				loggers["_default"] = Logger();
-			}
-			~Manager()
-			{}
-		};
 	}
 	
-	// ------------------------
 	// Configuration class
 	// ------------------------
 	class Config
@@ -129,40 +166,78 @@ namespace el
 		bool toFile;
 	};
 
-	// Important variables
+	// INTERNAL Namespace - should not be used by the user
 	// ------------------------
-	std::unique_ptr<internal::Manager> log_manager;
-	std::unique_ptr<Config> manager_config;
-
-	// Initialization function
-	// ------------------------
-	inline bool initialize(Config cfg)
+	namespace internal
 	{
-		
+		void dispatch(std::string str, uint level)
+		{
+			std::cout << "[" << utils::levelToStr(level) << "] " << str << std::endl;
+		}
+
+		// Writer class
+		// ------------------------
+		class Writer : private utils::NonCopyable
+		{
+		private:
+			std::stringstream stream;
+			uint level;
+			cstr logger_name;
+		public:
+			// Operator overloading
+			// ------------------------
+			Writer& operator<<(const std::string& s) {
+				stream << s;
+				return PTRME;
+			}
+			Writer& operator<<(const int& i) {
+				stream << i;
+				return PTRME;
+			}
+			// -----------------------
+			Writer(cstr _logger_name, uint _level)
+				: logger_name(_logger_name), level(_level)
+			{}
+			virtual ~Writer() {
+				dispatch(stream.str(), level);
+			}
+		};
+
+		Writer write(cstr logger_name, uint level)
+		{
+			return Writer(logger_name, level);
+		}
+
+		bool ready()
+		{
+			return true;
+		}
 	}
 
-	// Macros for easy access to levels
+	// Global functions
 	// ------------------------
-	#define GENERAL Level::General
-	#define ERROR Level::Error
-	#define WARNING Level::Warning
-	#define DEBUG Level::Debug
-	#define INFO Level::Info
+	inline std::pair<bool, cstr> initialize(Config cfg)
+	{
+		if(log_config)
+			log_config.release();
+
+		log_config = utils::makeUniquePtr<Config>(cfg);
+
+		return std::make_pair(false, cstr());
+	}
+	inline void reconfigure(Config cfg)
+	{
+		log_config.release();
+		log_config = utils::makeUniquePtr<Config>(cfg);
+	}
 }
 
 
-inline el::internal::Writer& LOG(el::uint level = el::Level::General, el::cstr logger_name = "_default")
+inline el::internal::Writer LOG(el::uint level = el::Level::General, el::cstr logger_name = "_default")
 {
-	if(el::log_manager)
+	if(el::internal::ready())
 	{
-		if(level & el::GENERAL) {
-		
-		}
-		if(level & el::ERROR) {
-	
-		}
-
-		return el::log_manager->write(logger_name);
+		return el::internal::write(logger_name, level);
 	}
 	else
 	{
