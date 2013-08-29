@@ -89,6 +89,15 @@ namespace el
 	// ------------------------
 	namespace utils
 	{
+		long fileSize(std::ifstream& file)
+		{
+			long begin = file.tellg();
+			file.seekg(0, std::ios::end);
+			long end = file.tellg();
+			file.seekg(begin);
+			return (end-begin);
+		}
+
 		cstr levelToStr(uint level)
 		{
 			switch(level)
@@ -148,22 +157,34 @@ namespace el
 		};
 	}
 	
+	class LogConfig
+	{
+	public:
+		LogConfig(
+			bool _toFile = false, 
+			bool _toStdOut = true,
+			bool _enabled = true,
+			bool _appendToFile = true,
+			std::string _format = "[%datetime%] %level% -> %log%",
+			long _maxFileSize = 2 * (1024^2) // 2 Megabytes (in bytes)
+		)
+		{}
+
+		bool toFile;
+		bool toStdOut;
+		bool enabled;
+		bool appendToFile;
+		std::string format;
+		long maxFileSize;
+	};
+
 	// Configuration class
 	// ------------------------
 	class Config
 	{
 	public:
-		Config(bool default = true)
-		{
-			if(default) {
-				// Apply default config
-			}
-			else {
-				// Apply non-default config
-			}
-		}
-	private:
-		bool toFile;
+		Config(){}
+		std::map<cstr,LogConfig> cfgs;
 	};
 
 	// INTERNAL Namespace - should not be used by the user
@@ -216,24 +237,31 @@ namespace el
 
 	// Global functions
 	// ------------------------
-	inline std::pair<bool, cstr> initialize(Config cfg)
+	inline std::pair<bool, cstr> initialize()
 	{
 		if(log_config)
 			log_config.release();
 
-		log_config = utils::makeUniquePtr<Config>(cfg);
+		log_config = utils::makeUniquePtr<Config>();
 
 		return std::make_pair(false, cstr());
 	}
-	inline void reconfigure(Config cfg)
+	inline void addLogConfig(LogConfig logcfg)
 	{
-		log_config.release();
-		log_config = utils::makeUniquePtr<Config>(cfg);
+
+	}
+	inline void setGlobalConfig(cstr filename)
+	{
+		if(utils::file_exists(filename)) {
+		
+		} else {
+			
+		}
 	}
 }
 
 
-inline el::internal::Writer LOG(el::uint level = el::Level::General, el::cstr logger_name = "_default")
+inline el::internal::Writer LOG(el::uint level = el::Level::General, el::cstr logger_name = "default")
 {
 	if(el::internal::ready())
 	{
