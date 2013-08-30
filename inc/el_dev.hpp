@@ -3,63 +3,23 @@
 #include <iostream>
 #include <fstream>
 #include <map>
-#include <bitset>
 #include <sstream>
 #include <string>
 #include <mutex>
 #include <memory>
 #include <chrono>
 
-#define TIME_AS_MILLI(bench) float(bench.get<std::chrono::milliseconds>().count())
-#define TIME_AS_SEC(bench) TIME_AS_MILLI(bench)/1000.0f
-#define TIME_AS_MIN(bench) TIME_AS_SEC(bench)/60.0f
-#define TIME_AS_MICRO(bench) float(bench.get<std::chrono::microseconds>().count())
-
-class Benchmark
-{
-private:
-	std::chrono::system_clock::time_point t0;
-	std::chrono::system_clock::time_point t1;
-public:
-	void start()
-	{
-		t0 = std::chrono::high_resolution_clock::now();
-	}
-	void stop()
-	{
-		t1 = std::chrono::high_resolution_clock::now();
-	}
-	void restart()
-	{stop();start();}
-			
-	template<typename t>
-	t get()
-	{
-		return std::chrono::duration_cast<t>(t1 - t0);
-	}
-
-	template<typename Functor>
-	void lambda(Functor func)
-	{
-		start();
-		func();
-		stop();
-	}
-};
-
 namespace el
 {
-	// Useful little macros
+	// Useful little macros and functions
 	// ------------------------
 	#define PTRME (*this)
-
-	// Macros for easy access to levels
-	// ------------------------
-	#define GENERAL Level::General
-	#define ERROR Level::Error
-	#define WARNING Level::Warning
-	#define DEBUG Level::Debug
-	#define INFO Level::Info
+	inline std::pair<bool,std::string> make_resp(bool err = false, std::string msg = std::string())
+	{
+		return std::make_pair(err,msg);
+	}
+	#define CERR(expr) std::cerr << expr << std::endl;
+	#define COUT(expr) std::cout << expr << std::endl;
 
 	// Important variables
 	// ------------------------
@@ -71,6 +31,7 @@ namespace el
 	// ------------------------
 	typedef unsigned int uint;
 	typedef char* cstr;
+	typedef std::pair<bool, std::string> resp;
 
 	// Logger level definitions
 	// ------------------------
@@ -85,15 +46,63 @@ namespace el
 		};
 	}
 
+	// Macros for easy access to levels
+	// ------------------------
+	const uint GENERAL = Level::General;
+	const uint ERROR = Level::Error;
+	const uint WARNING = Level::Warning;
+	const uint DEBUG = Level::Debug;
+	const uint INFO = Level::Info;
+
 	// UTILS Namespace - helper functions
 	// ------------------------
 	namespace utils
 	{
+		namespace time
+		{
+			class Benchmark
+			{
+			private:
+				std::chrono::system_clock::time_point t0;
+				std::chrono::system_clock::time_point t1;
+			public:
+				void start()
+				{
+					t0 = std::chrono::high_resolution_clock::now();
+				}
+				void stop()
+				{
+					t1 = std::chrono::high_resolution_clock::now();
+				}
+				void restart()
+				{stop();start();}
+			
+				template<typename t>
+				t get()
+				{
+					return std::chrono::duration_cast<t>(t1 - t0);
+				}
+
+				template<typename Functor>
+				void lambda(Functor func)
+				{
+					start();
+					func();
+					stop();
+				}
+			};
+
+			inline float asMicroseconds(Benchmark& bench) { return bench.get<std::chrono::microseconds>().count(); }
+			inline float asMilliseconds(Benchmark& bench) { return bench.get<std::chrono::milliseconds>().count(); }
+			inline float asSeconds(Benchmark& bench) { return (asMilliseconds(bench)) / 1000.0f; }
+			inline float asMinutes(Benchmark& bench) { return (asSeconds(bench)) / 60.0f; }
+		}
+
 		long fileSize(std::ifstream& file)
 		{
-			long begin = file.tellg();
+			auto begin = file.tellg();
 			file.seekg(0, std::ios::end);
-			long end = file.tellg();
+			auto end = file.tellg();
 			file.seekg(begin);
 			return (end-begin);
 		}
@@ -142,19 +151,6 @@ namespace el
 			std::ifstream f(filename);
 			return (!f ? false : true);
 		}
-		
-		// Smart mutex - adds lambda function for auto lock-unlock
-		// ------------------------
-		class smart_mutex : public std::mutex
-		{
-		public:
-			template<typename functor>
-			void lambda(functor func) {
-				lock();
-					func();
-				unlock();
-			}
-		};
 	}
 	
 	class LogConfig
@@ -168,6 +164,9 @@ namespace el
 			std::string _format = "[%datetime%] %level% -> %log%",
 			long _maxFileSize = 2 * (1024^2) // 2 Megabytes (in bytes)
 		)
+		: toFile(_toFile), toStdOut(_toStdOut),
+		enabled(_enabled), appendToFile(_appendToFile),
+		format(_format), maxFileSize(_maxFileSize)
 		{}
 
 		bool toFile;
@@ -198,23 +197,37 @@ namespace el
 
 		// Writer class
 		// ------------------------
-		class Writer : private utils::NonCopyable
+		class Writer : public utils::NonCopyable
 		{
 		private:
+			std::mutex m;
 			std::stringstream stream;
 			uint level;
 			cstr logger_name;
+
+			template<typename T>
+			void doauto(const T& s)
+			{
+				m.lock();
+					stream << s;
+				m.unlock();
+			}
 		public:
 			// Operator overloading
 			// ------------------------
 			Writer& operator<<(const std::string& s) {
-				stream << s;
+				doauto(s);
 				return PTRME;
 			}
-			Writer& operator<<(const int& i) {
-				stream << i;
+			Writer& operator<<(const int& s) {
+				doauto(s);
 				return PTRME;
 			}
+			Writer& operator<<(const float& s) {
+				doauto(s);
+				return PTRME;
+			}
+
 			// -----------------------
 			Writer(cstr _logger_name, uint _level)
 				: logger_name(_logger_name), level(_level)
@@ -231,31 +244,40 @@ namespace el
 
 		bool ready()
 		{
-			return true;
+			if(log_config)
+				return true;
+			else
+				return false;
 		}
 	}
 
 	// Global functions
 	// ------------------------
-	inline std::pair<bool, cstr> initialize()
+	inline resp initialize()
 	{
 		if(log_config)
-			log_config.release();
+			return make_resp(true, "The logging system is already initialized.");
 
 		log_config = utils::makeUniquePtr<Config>();
 
-		return std::make_pair(false, cstr());
+		return make_resp(false);
 	}
-	inline void addLogConfig(LogConfig logcfg)
+	inline resp addLogConfig(cstr name, LogConfig cfg)
 	{
-
+		if(log_config)
+		{
+		}
+		else
+		{
+			return make_resp(true, "Could not add log config: the logging system is not initialized.");
+		}
 	}
 	inline void setGlobalConfig(cstr filename)
 	{
 		if(utils::file_exists(filename)) {
-		
+			COUT("File " << filename << " does exist.");
 		} else {
-			
+			COUT("File " << filename << " does not exist.");
 		}
 	}
 }
@@ -269,6 +291,8 @@ inline el::internal::Writer LOG(el::uint level = el::Level::General, el::cstr lo
 	}
 	else
 	{
-		throw std::exception("FATAL: The logging manager has not been initialized.");
+		CERR("[LE_ERROR]: The logging system is not initialized. Initializing default config.");
+		el::initialize();
+		return el::internal::write(logger_name, level);
 	}
 }
