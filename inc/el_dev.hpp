@@ -8,6 +8,10 @@
 #include <mutex>
 #include <memory>
 #include <chrono>
+#include <vector>
+
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
 
 namespace el
 {
@@ -18,8 +22,8 @@ namespace el
 	{
 		return std::make_pair(err,msg);
 	}
-	#define CERR(expr) std::cerr << expr << std::endl;
-	#define COUT(expr) std::cout << expr << std::endl;
+	#define CERR(expr) std::cerr << "[EL_ERROR]: " << expr << std::endl;
+	#define COUT(expr) std::cout << "[EL_INFO]: " << expr << std::endl;
 
 	// Important variables
 	// ------------------------
@@ -98,6 +102,18 @@ namespace el
 			inline float asMinutes(Benchmark& bench) { return (asSeconds(bench)) / 60.0f; }
 		}
 
+		inline void replaceAll(std::string& str, const std::string& from, const std::string& to)
+		{
+			if(from.empty())
+				return;
+			size_t start_pos = 0;
+			while((start_pos = str.find(from, start_pos)) != std::string::npos)
+			{
+				str.replace(start_pos, from.length(), to);
+				start_pos += to.length();
+			}
+		}
+
 		long fileSize(std::ifstream& file)
 		{
 			auto begin = file.tellg();
@@ -151,12 +167,23 @@ namespace el
 			std::ifstream f(filename);
 			return (!f ? false : true);
 		}
+
+		inline std::pair<std::string,std::string> splitInTwo(const cstr by, const std::string str)
+		{
+			size_t f;
+			std::pair<std::string,std::string> pair;
+			if((f = str.find(by)) != std::string::npos)
+			{
+				pair.first = str.substr(0,f);
+				pair.second = str.substr(f+1,std::string::npos);
+			}
+			return pair;
+		}
 	}
 	
-	class LogConfig
+	struct ConfigHolder
 	{
-	public:
-		LogConfig(
+		ConfigHolder(
 			bool _toFile = false, 
 			bool _toStdOut = true,
 			bool _enabled = true,
@@ -177,22 +204,69 @@ namespace el
 		long maxFileSize;
 	};
 
+	class LogConfig
+	{
+	public:
+		ConfigHolder general;
+		ConfigHolder warning;
+		ConfigHolder error;
+		ConfigHolder debug;
+		ConfigHolder info;
+	};
+
 	// Configuration class
 	// ------------------------
 	class Config
 	{
 	public:
 		Config(){}
-		std::map<cstr,LogConfig> cfgs;
+
+		LogConfig& get(const std::string logger)
+		{
+			return cfgs[logger];
+		}
+
+		std::map<std::string,LogConfig> cfgs;
+		boost::property_tree::ptree pt;
 	};
 
 	// INTERNAL Namespace - should not be used by the user
 	// ------------------------
 	namespace internal
 	{
-		void dispatch(std::string str, uint level)
+		void dispatch(std::string str, uint level, cstr logger)
 		{
-			std::cout << "[" << utils::levelToStr(level) << "] " << str << std::endl;
+			ConfigHolder cfg;
+
+			if(level == GENERAL)
+				cfg = &log_config->get(logger).general;
+			else if(level == ERROR)
+				cfg = &log_config->get(logger).error;
+			else if(level == WARNING)
+				cfg = &log_config->get(logger).warning;
+			else if(level == INFO)
+				cfg = &log_config->get(logger).info;
+			else if(level == DEBUG)
+				cfg = &log_config->get(logger).debug;
+			else
+			{
+				level = GENERAL;
+				cfg = &log_config->get(logger).general;
+			}
+
+			std::string final = cfg.format;
+
+			std::vector<std::pair<std::string,std::string>> vars;
+			vars.push_back(std::make_pair("%datetime%", "NAO"));
+			vars.push_back(std::make_pair("%level%", utils::levelToStr(level)));
+			vars.push_back(std::make_pair("%log%", str));
+
+			for(auto& el : vars)
+			{
+				utils::replaceAll(final, el.first, el.second);
+			}
+
+			COUT(final);
 		}
 
 		// Writer class
@@ -233,7 +307,7 @@ namespace el
 				: logger_name(_logger_name), level(_level)
 			{}
 			virtual ~Writer() {
-				dispatch(stream.str(), level);
+				dispatch(stream.str(), level, logger_name);
 			}
 		};
 
@@ -274,11 +348,57 @@ namespace el
 	}
 	inline void setGlobalConfig(cstr filename)
 	{
-		if(utils::file_exists(filename)) {
-			COUT("File " << filename << " does exist.");
-		} else {
-			COUT("File " << filename << " does not exist.");
+		if(log_config)
+			log_config.release();
+
+		log_config = utils::makeUniquePtr<Config>();
+
+		if(utils::file_exists(filename))
+		{
+			boost::property_tree::ini_parser::read_ini(filename, log_config->pt);
+
+			for(auto it = log_config->pt.begin(); it != log_config->pt.end(); it++)
+			{
+				if(it->first == "globalRules")
+				{
+					// Fetch global info data
+				}
+				else
+				{
+					auto p = utils::splitInTwo(":", it->first);
+					if(!p.first.empty())
+					{
+						if(p.second.empty())
+							p.second = "GENERAL";
+						// Fetch log info data
+						bool toFile = boost::optional<bool>(it->second.get_optional<bool>("ToFile")).get_value_or(false);
+						std::string fileName = boost::optional<std::string>(it->second.get_optional<std::string>("Filename")).get_value_or("out.log");
+						bool toStdOut = boost::optional<bool>(it->second.get_optional<bool>("ToStdOut")).get_value_or(true);
+						bool enabled = boost::optional<bool>(it->second.get_optional<bool>("Enabled")).get_value_or(true);
+						bool appendToFile = boost::optional<bool>(it->second.get_optional<bool>("AppendToFile")).get_value_or(true);
+						std::string format = boost::optional<std::string>(it->second.get_optional<std::string>("Format")).get_value_or("[%datetime%] %level% -> %log%");
+						int maxFileSize = boost::optional<int>(it->second.get_optional<int>("MaxFileSize")).get_value_or(2 * 1024 * 1024);
+
+						ConfigHolder c(toFile, toStdOut, enabled, appendToFile, format, maxFileSize);
+
+						if(p.second == "GENERAL")
+							log_config->get(p.first).general = c;
+						else if(p.second == "ERROR")
+							log_config->get(p.first).error = c;
+						else if(p.second == "WARNING")
+							log_config->get(p.first).warning = c;
+						else if(p.second == "INFO")
+							log_config->get(p.first).info = c;
+						else if(p.second == "DEBUG")
+							log_config->get(p.first).debug = c;
+						else
+							log_config->get(p.first).general = c;
+					}
+				}
+			}
 		}
+		else
+			CERR("File " << filename << " does not exist.");
 	}
 }
 
@@ -291,7 +411,7 @@ inline el::internal::Writer LOG(el::uint level = el::Level::General, el::cstr lo
 	}
 	else
 	{
-		CERR("[LE_ERROR]: The logging system is not initialized. Initializing default config.");
+		CERR("The logging system is not initialized. Initializing default config.");
 		el::initialize();
 		return el::internal::write(logger_name, level);
 	}

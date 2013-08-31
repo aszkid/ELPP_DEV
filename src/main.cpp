@@ -2,17 +2,7 @@
 
 #include <vector>
 
-void replaceAll(std::string& str, const std::string& from, const std::string& to)
-{
-	if(from.empty())
-		return;
-	size_t start_pos = 0;
-	while((start_pos = str.find(from, start_pos)) != std::string::npos)
-	{
-		str.replace(start_pos, from.length(), to);
-		start_pos += to.length();
-	}
-}
+
 
 int main()
 {
@@ -34,10 +24,17 @@ int main()
 	std::cout << "FORMAT: " << format << std::endl;
 	std::cout << "FINAL: " << final << std::endl;*/
 
-	el::utils::time::Benchmark b;
+	el::initialize();
+	el::setGlobalConfig("../log_config.ini");
+
+	LOG(el::GENERAL) << "Some info you " << 10 << " fuckers.";
 
 	float median = 0;
-	int times = 50;
+	int times = 10;
+
+
+	/*el::utils::time::Benchmark b;
+
 
 	for(int i = 0; i < times; i++)
 	{
@@ -51,7 +48,7 @@ int main()
 
 	median /= times;
 
-	std::cout << "Took me " << median << " milliseconds." << std::endl;
+	COUT("Took me " << median << " milliseconds to do a simple non-file log.");*/
 
 
 
