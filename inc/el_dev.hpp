@@ -269,7 +269,7 @@ namespace el
 
 		// Writer class
 		// ------------------------
-		class Writer : public utils::NonCopyable
+		class Writer// : public utils::NonCopyable
 		{
 		private:
 			//std::mutex m;
@@ -309,10 +309,10 @@ namespace el
 			}
 		};
 
-		Writer write(std::string logger_name, uint level)
+		/*Writer write(std::string logger_name, uint level)
 		{
 			return Writer(logger_name, level);
-		}
+		}*/
 
 		bool ready()
 		{
@@ -336,13 +336,12 @@ namespace el
 	}
 	inline resp addLogConfig(cstr name, LogConfig cfg)
 	{
-		if(log_config)
-		{
-		}
-		else
+		if(!log_config)
 		{
 			return make_resp(true, "Could not add log config: the logging system is not initialized.");
 		}
+		
+		return make_resp(false);
 	}
 	inline void setGlobalConfig(std::string filename)
 	{
@@ -405,12 +404,12 @@ inline el::internal::Writer LOG(el::uint level = el::Level::General, std::string
 {
 	if(el::internal::ready())
 	{
-		return el::internal::write(logger_name, level);
+		//return el::internal::write(logger_name, level);
 	}
 	else
 	{
 		CERR("The logging system is not initialized. Initializing default config.");
 		el::initialize();
-		return el::internal::write(logger_name, level);
+		//return el::internal::write(logger_name, level);
 	}
 }

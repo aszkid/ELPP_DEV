@@ -10,7 +10,7 @@ cd ../../bin
 echo $(tput bold)$(tput setaf 1)"----------------------"
 echo "-- RUNNING PROJECT  --"
 echo "----------------------"$(tput sgr0)
-./elf
+./ELF
 cd ../
 echo $(tput bold)$(tput setaf 1)"----------------------"
 echo $(tput bold)$(tput setaf 5)"--------------------------------------------"

@@ -25,14 +25,13 @@ int main()
 	std::cout << "FINAL: " << final << std::endl;*/
 
 	el::initialize();
-	el::setGlobalConfig("../log_config.ini");
+	el::setGlobalConfig("log_config.ini");/*
 
 	LOG(el::GENERAL) << "Some info you " << 10 << " fuckers.";
 
 	float median = 0;
-	int times = 10;
-
-
+	int times = 10;*/
+	
 	/*el::utils::time::Benchmark b;
 
 
