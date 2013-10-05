@@ -1,3 +1,27 @@
+//	------------------------------------------------------------------------------
+//	MIT LICENSED WORK
+//
+//	Copyright (c) 2013 Pol Gómez, https://github.com/aszkid
+//
+//	Permission is hereby granted, free of charge, to any person obtaining a copy
+//	of this software and associated documentation files (the "Software"), to deal
+//	in the Software without restriction, including without limitation the rights
+//	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//	copies of the Software, and to permit persons to whom the Software is
+//	furnished to do so, subject to the following conditions:
+//
+//	The above copyright notice and this permission notice shall be included in
+//	all copies or substantial portions of the Software.
+//
+//	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+//	THE SOFTWARE.
+//	------------------------------------------------------------------------------
+
 #pragma once
 
 #include <iostream>
@@ -144,13 +168,6 @@ namespace el
 				return "GENERAL";
 			}
 		}
-
-		class NonCopyable
-		{
-		public:
-			NonCopyable(const NonCopyable&);
-			NonCopyable& operator=(const NonCopyable&);
-		};
 
 		template<class T>
 		inline std::unique_ptr<T> makeUniquePtr()
@@ -317,7 +334,7 @@ namespace el
 
 			// -----------------------
 			Writer(std::string _logger_name, uint _level)
-				: logger_name(_logger_name), level(_level)
+				: level(_level), logger_name(_logger_name)
 			{}
 			virtual ~Writer() {
 				dispatch(level, logger_name);
@@ -345,8 +362,8 @@ namespace el
 		if(log_config)
 			return el::make_resp(true, "The logging system is already initialized.");
 
-		el::log_config = utils::makeUniquePtr<el::Config>();
-		el::stream = utils::makeUniquePtr<std::stringstream>();
+		log_config = utils::makeUniquePtr<el::Config>();
+		stream = utils::makeUniquePtr<std::stringstream>();
 
 		return make_resp(false);
 	}

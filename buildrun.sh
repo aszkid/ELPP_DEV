@@ -5,7 +5,7 @@ echo "-- GENERATING CMAKE --"
 echo "----------------------"$(tput sgr0)
 cmake -G"Unix Makefiles" pro/makefile/
 cd pro/makefile
-make all
+time make all
 cd ../../bin
 echo $(tput bold)$(tput setaf 1)"----------------------"
 echo "-- RUNNING PROJECT  --"
