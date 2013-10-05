@@ -357,7 +357,7 @@ namespace el
 
 		bool ready()
 		{
-			if(log_config)
+			if(log_config && stream)
 				return true;
 			else
 				return false;
