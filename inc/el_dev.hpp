@@ -33,6 +33,7 @@
 #include <memory>
 #include <chrono>
 #include <vector>
+#include <ctime>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
@@ -197,6 +198,16 @@ namespace el
 			}
 			return pair;
 		}
+		
+		inline std::string dateTime()
+		{
+			time_t now = std::time(0);
+			tm *ltm = localtime(&now);
+			std::stringstream s;
+			s << ltm->tm_mday << "/" << ltm->tm_mon + 1 << "/" << 1900 + ltm->tm_year << " - "
+				<< ltm->tm_hour + 1 << ":" << ltm->tm_min + 1 << ":" << ltm->tm_sec + 1;
+			return s.str();
+		}
 	}
 	
 	struct ConfigHolder
@@ -254,7 +265,8 @@ namespace el
 	{
 		void dispatch(uint level, std::string logger)
 		{
-			/*ConfigHolder cfg;
+			
+			ConfigHolder *cfg;
 
 			if(level == GENERAL)
 				cfg = &log_config->get(logger).general;
@@ -271,21 +283,18 @@ namespace el
 				level = GENERAL;
 				cfg = &log_config->get(logger).general;
 			}
-
-			std::string final = cfg.format;
-
+			
+			std::string final = cfg->format;
+		
 			std::vector<std::pair<std::string,std::string>> vars;
-			vars.push_back(std::make_pair("%datetime%", "NAO"));
+			vars.push_back(std::make_pair("%datetime%", utils::dateTime()));
 			vars.push_back(std::make_pair("%level%", utils::levelToStr(level)));
 			vars.push_back(std::make_pair("%log%", stream->str()));
 
 			for(auto& el : vars)
-			{
 				utils::replaceAll(final, el.first, el.second);
-			}
-			COUT(final);*/
 			
-			std::cout << "LOG (" << utils::levelToStr(level) << "): " << stream->str() << std::endl;
+			std::cout << final << std::endl;
 			stream->str(std::string());
 		}
 
@@ -336,7 +345,7 @@ namespace el
 			Writer(std::string _logger_name, uint _level)
 				: level(_level), logger_name(_logger_name)
 			{}
-			virtual ~Writer() {
+			~Writer() {
 				dispatch(level, logger_name);
 			}
 		};
@@ -428,7 +437,7 @@ namespace el
 			}
 		}
 		else
-			CERR("File " << filename << " does not exist.");
+			CERR("File '" << filename << "' does not exist. Skipping configuration.");
 	}
 }
 

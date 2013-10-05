@@ -3,57 +3,24 @@
 int main()
 {
 	el::initialize();
-	
-	LOG(el::INFO) << "This is cool (" << 32 << ")?";
-	
-	/*std::string format = "[%datetime%] %level% -> %log%";
-	std::string final = format;
-
-	std::vector<std::pair<std::string,std::string>> vars;
-	vars.push_back(std::make_pair("%datetime%", "25/05/2013 19:25:03"));
-	vars.push_back(std::make_pair("%level%", "ERROR"));
-	vars.push_back(std::make_pair("%log%", "This is so wrong"));
-
-	for(auto& el : vars)
-	{
-		replaceAll(final, el.first, el.second);
-	}
-
-	std::cout << "FORMAT: " << format << std::endl;
-	std::cout << "FINAL: " << final << std::endl;*/
-
-	/*el::initialize();
-	el::setGlobalConfig("log_config.ini");
-	
-	LOG(el::log_config->get("defsault").general.format);*/
-	
-	/*
-
-	LOG(el::GENERAL) << "Some info you " << 10 << " fuckers.";
+	//el::setGlobalConfig("mother");
 
 	float median = 0;
-	int times = 10;*/
+	int times = 20;
 	
-	/*el::utils::time::Benchmark b;
-
+	el::utils::time::Benchmark b;
 
 	for(int i = 0; i < times; i++)
 	{
 		b.lambda([&](){
 			LOG(el::INFO) << "This is info logging";
 		});
-
-		float time = el::utils::time::asMilliseconds(b);
-		median += time;
+		median += el::utils::time::asMilliseconds(b);
 	}
 
 	median /= times;
 
-	COUT("Took me " << median << " milliseconds to do a simple non-file log.");*/
-
-
-
-	//LOG("It's over.");
-	//std::cin.sync(); std::cin.get();
+	COUT("Took me " << median << " milliseconds.");
+	
 	return 0;
 }
