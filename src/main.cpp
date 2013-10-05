@@ -1,12 +1,10 @@
 #include <el_dev.hpp>
 
-#include <vector>
-
-
-
 int main()
 {
-	//el::initialize();
+	el::initialize();
+	
+	LOG(el::INFO) << "This is cool (" << 32 << ")?";
 	
 	/*std::string format = "[%datetime%] %level% -> %log%";
 	std::string final = format;
@@ -24,8 +22,12 @@ int main()
 	std::cout << "FORMAT: " << format << std::endl;
 	std::cout << "FINAL: " << final << std::endl;*/
 
-	el::initialize();
-	el::setGlobalConfig("log_config.ini");/*
+	/*el::initialize();
+	el::setGlobalConfig("log_config.ini");
+	
+	LOG(el::log_config->get("defsault").general.format);*/
+	
+	/*
 
 	LOG(el::GENERAL) << "Some info you " << 10 << " fuckers.";
 
@@ -51,7 +53,7 @@ int main()
 
 
 
-	std::cout<<"End."<<std::endl;
-	std::cin.sync(); std::cin.get();
+	//LOG("It's over.");
+	//std::cin.sync(); std::cin.get();
 	return 0;
 }

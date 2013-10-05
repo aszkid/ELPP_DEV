@@ -30,6 +30,9 @@ namespace el
 	class Config;
 
 	std::unique_ptr<Config> log_config;
+	std::mutex mutex;
+	std::unique_ptr<std::stringstream> stream;
+	
 
 	// Type conventions
 	// ------------------------
@@ -232,9 +235,9 @@ namespace el
 	// ------------------------
 	namespace internal
 	{
-		void dispatch(std::string str, uint level, std::string logger)
+		void dispatch(uint level, std::string logger)
 		{
-			ConfigHolder cfg;
+			/*ConfigHolder cfg;
 
 			if(level == GENERAL)
 				cfg = &log_config->get(logger).general;
@@ -257,46 +260,58 @@ namespace el
 			std::vector<std::pair<std::string,std::string>> vars;
 			vars.push_back(std::make_pair("%datetime%", "NAO"));
 			vars.push_back(std::make_pair("%level%", utils::levelToStr(level)));
-			vars.push_back(std::make_pair("%log%", str));
+			vars.push_back(std::make_pair("%log%", stream->str()));
 
 			for(auto& el : vars)
 			{
 				utils::replaceAll(final, el.first, el.second);
 			}
-
-			COUT(final);
+			COUT(final);*/
+			
+			std::cout << "LOG (" << utils::levelToStr(level) << "): " << stream->str() << std::endl;
+			stream->str(std::string());
 		}
 
 		// Writer class
 		// ------------------------
-		class Writer// : public utils::NonCopyable
+		class Writer
 		{
 		private:
-			//std::mutex m;
-			std::stringstream stream;
 			uint level;
 			std::string logger_name;
 
-			/*template<typename T>
+			template<typename T>
 			void doauto(const T& s)
 			{
-				m.lock();
-					stream << s;
-				m.unlock();
-			}*/
+				mutex.lock();
+					(*stream) << s;
+				mutex.unlock();
+			}
 		public:
-			// Operator overloading
-			// ------------------------
+			// Operator overloading - basic C/C++ types
+			// ---------------------------------------
 			Writer& operator<<(const std::string& s) {
-				//doauto(s);
+				doauto<std::string>(s);
 				return PTRME;
 			}
 			Writer& operator<<(const int& s) {
-				//doauto(s);
+				doauto<int>(s);
 				return PTRME;
 			}
 			Writer& operator<<(const float& s) {
-				//doauto(s);
+				doauto<float>(s);
+				return PTRME;
+			}
+			Writer& operator<<(const char& s) {
+				doauto<char>(s);
+				return PTRME;
+			}
+			Writer& operator<<(const double& s) {
+				doauto<double>(s);
+				return PTRME;
+			}
+			Writer& operator<<(const wchar_t& s) {
+				doauto<wchar_t>(s);
 				return PTRME;
 			}
 
@@ -305,14 +320,14 @@ namespace el
 				: logger_name(_logger_name), level(_level)
 			{}
 			virtual ~Writer() {
-				dispatch(stream.str(), level, logger_name);
+				dispatch(level, logger_name);
 			}
 		};
 
-		/*Writer write(std::string logger_name, uint level)
+		Writer write(std::string logger_name, uint level)
 		{
 			return Writer(logger_name, level);
-		}*/
+		}
 
 		bool ready()
 		{
@@ -331,6 +346,7 @@ namespace el
 			return el::make_resp(true, "The logging system is already initialized.");
 
 		el::log_config = utils::makeUniquePtr<el::Config>();
+		el::stream = utils::makeUniquePtr<std::stringstream>();
 
 		return make_resp(false);
 	}
@@ -404,12 +420,12 @@ inline el::internal::Writer LOG(el::uint level = el::Level::General, std::string
 {
 	if(el::internal::ready())
 	{
-		//return el::internal::write(logger_name, level);
+		return el::internal::write(logger_name, level);
 	}
 	else
 	{
 		CERR("The logging system is not initialized. Initializing default config.");
 		el::initialize();
-		//return el::internal::write(logger_name, level);
+		return el::internal::write(logger_name, level);
 	}
 }
