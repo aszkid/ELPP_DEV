@@ -21,6 +21,6 @@ int main()
 }
 ```
 
-Will print 'This is info logging: 32' in the standart output.
+Will print `This is info logging: 32` in the standart output.
 
 Simple as that. Fast and uncomplicated.
