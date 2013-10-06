@@ -34,6 +34,7 @@
 #include <chrono>
 #include <vector>
 #include <ctime>
+#include <iomanip>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
@@ -92,6 +93,41 @@ namespace el
 	{
 		namespace time
 		{
+			typedef std::chrono::time_point<std::chrono::system_clock>  system_time_point;
+		
+			std::time_t systemtime_now()
+			{
+				system_time_point system_now = std::chrono::system_clock::now();
+				return std::chrono::system_clock::to_time_t(system_now);
+			}
+		
+			tm localtime(const std::time_t& time)
+			{
+			std::tm tm_snapshot;
+			#if (defined(WIN32) || defined(_WIN32) || defined(__WIN32__))
+				localtime_s(&tm_snapshot, &time);
+			#else
+				localtime_r(&time, &tm_snapshot); // POSIX
+			#endif
+			return tm_snapshot;
+			}
+		
+			std::string put_time(const std::tm* date_time, const char* c_time_format)
+			{
+				#if (defined(WIN32) || defined(_WIN32) || defined(__WIN32__))
+					std::ostringstream oss;
+					oss << std::put_time(const_cast<std::tm*>(date_time), c_time_format);
+					return oss.str();
+				#else
+					const size_t size = 1024;
+					char buffer[size]; 
+					auto success = std::strftime(buffer, size, c_time_format, date_time); 
+					if (0 == success)
+						return c_time_format; 
+					return buffer; 
+				#endif
+			}
+		
 			class Benchmark
 			{
 			private:
@@ -201,12 +237,8 @@ namespace el
 		
 		inline std::string dateTime()
 		{
-			time_t now = std::time(0);
-			tm *ltm = localtime(&now);
-			std::stringstream s;
-			s << ltm->tm_mday << "/" << ltm->tm_mon + 1 << "/" << 1900 + ltm->tm_year << " - "
-				<< ltm->tm_hour + 1 << ":" << ltm->tm_min + 1 << ":" << ltm->tm_sec + 1;
-			return s.str();
+			std::tm lt = time::localtime(time::systemtime_now());
+			return time::put_time(&lt, "%Y-%m-%d - %H:%M:%S");
 		}
 	}
 	

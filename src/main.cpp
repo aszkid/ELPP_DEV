@@ -4,8 +4,10 @@ int main()
 {
 	el::initialize();
 	//el::setGlobalConfig("mother");
+	
+	LOG() << "Yeah, this even works well: " << 32;
 
-	float median = 0;
+	/*float median = 0;
 	int times = 20;
 	
 	el::utils::time::Benchmark b;
@@ -20,7 +22,7 @@ int main()
 
 	median /= times;
 
-	COUT("Took me " << median << " milliseconds.");
+	COUT("Took me " << median << " milliseconds.");*/
 	
 	return 0;
 }
