@@ -29,5 +29,5 @@ Simple as that. Fast and uncomplicated.
 ### Compilable with
 -------------------------
 
-* `clang++ 3.2.1 (Linux)`
-* `g++ 4.7.3 (Linux)`
+* `clang++ 3.2.1 (Linux - 32/64)`
+* `g++ 4.7.3 (Linux - 32/64)`
