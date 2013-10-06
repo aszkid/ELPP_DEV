@@ -1,11 +1,24 @@
 #include <el_dev.hpp>
 
+#include <iostream>
+
+std::string getCompiler()
+{
+#ifdef __clang__
+	return "CLANG";
+#elif __GNUG__
+	return "GCC";
+#elif _MSC_VER
+	return "VC++";
+#else
+	return "UNKOWN";
+#endif
+}
+
 int main()
 {
 	el::initialize();
-	//el::setGlobalConfig("mother");
-	
-	LOG() << "Yeah, this even works well: " << 32;
+	LOG(el::DEBUG) << "USING COMPILER: " << getCompiler();
 
 	/*float median = 0;
 	int times = 20;

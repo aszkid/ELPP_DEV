@@ -3,8 +3,8 @@ echo "--------------------------------------------"
 echo $(tput bold)$(tput setaf 1)"----------------------"
 echo "-- GENERATING CMAKE --"
 echo "----------------------"$(tput sgr0)
-cmake -G"Unix Makefiles" pro/makefile/
-cd pro/makefile
+cmake -G"Unix Makefiles" pro/make_$1/
+cd pro/make_$1/
 time make all
 cd ../../bin
 echo $(tput bold)$(tput setaf 1)"----------------------"
